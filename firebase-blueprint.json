@@ -1,0 +1,341 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user profile with isolated privacy settings and optional verified phone number.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the authenticated user."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name shown in multiplayer matches."
+        },
+        "verifiedPhoneNumber": {
+          "type": "string",
+          "description": "Optional verified E.164 phone number, isolated to owner."
+        },
+        "contactDiscoveryEnabled": {
+          "type": "boolean",
+          "description": "Whether optional contact discovery is enabled."
+        },
+        "serverMatchingConsent": {
+          "type": "boolean",
+          "description": "Whether informed consent for server-side contact matching is granted."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "contactDiscoveryEnabled",
+        "serverMatchingConsent",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Real-time online multiplayer game room synchronized via Firestore.",
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "description": "Unique 6-character alphanumeric room code."
+        },
+        "hostUid": {
+          "type": "string",
+          "description": "UID of the player who created the room (plays X)."
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Display name of the host player."
+        },
+        "guestUid": {
+          "type": "string",
+          "description": "UID of the joining player (plays O), empty string while waiting."
+        },
+        "guestName": {
+          "type": "string",
+          "description": "Display name of the guest player."
+        },
+        "board": {
+          "type": "array",
+          "description": "9-element list representing the 3x3 board cells ('', 'X', 'O')."
+        },
+        "currentTurn": {
+          "type": "string",
+          "enum": ["X", "O"],
+          "description": "Current active player symbol."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "playing", "finished", "abandoned"],
+          "description": "Lifecycle status of the room."
+        },
+        "winner": {
+          "type": "string",
+          "enum": ["", "X", "O", "DRAW"],
+          "description": "Winner of the current round."
+        },
+        "winningCells": {
+          "type": "array",
+          "description": "Indices (0-8) of the winning line if won."
+        },
+        "hostScore": {
+          "type": "integer",
+          "description": "Number of rounds won by host (X)."
+        },
+        "guestScore": {
+          "type": "integer",
+          "description": "Number of rounds won by guest (O)."
+        },
+        "draws": {
+          "type": "integer",
+          "description": "Number of drawn rounds in this room."
+        },
+        "roundNumber": {
+          "type": "integer",
+          "description": "Current round number."
+        },
+        "hostConnected": {
+          "type": "boolean",
+          "description": "Connection status of host player."
+        },
+        "guestConnected": {
+          "type": "boolean",
+          "description": "Connection status of guest player."
+        },
+        "expiresAt": {
+          "type": "integer",
+          "description": "Epoch milliseconds when room expires."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when room was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when room was last updated."
+        }
+      },
+      "required": [
+        "roomId",
+        "hostUid",
+        "hostName",
+        "guestUid",
+        "guestName",
+        "board",
+        "currentTurn",
+        "status",
+        "winner",
+        "winningCells",
+        "hostScore",
+        "guestScore",
+        "draws",
+        "roundNumber",
+        "hostConnected",
+        "guestConnected",
+        "expiresAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "GameRecord": {
+      "title": "GameRecord",
+      "description": "Synced match record owned by a specific authenticated user.",
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "description": "Unique identifier for the game record."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner UID of this game record."
+        },
+        "playerUids": {
+          "type": "array",
+          "description": "List of participating player UIDs (max 2)."
+        },
+        "board": {
+          "type": "array",
+          "description": "9-element board state."
+        },
+        "currentTurn": {
+          "type": "string",
+          "enum": ["X", "O"],
+          "description": "Active turn."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["playing", "finished"],
+          "description": "Match status."
+        },
+        "result": {
+          "type": "string",
+          "enum": ["X_WON", "O_WON", "DRAW", "IN_PROGRESS"],
+          "description": "Match outcome."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["LOCAL", "ROBOT_EASY", "ROBOT_MEDIUM", "ROBOT_HARD", "ONLINE"],
+          "description": "Game mode played."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when game was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when game was updated."
+        }
+      },
+      "required": [
+        "gameId",
+        "userId",
+        "playerUids",
+        "board",
+        "currentTurn",
+        "status",
+        "result",
+        "mode",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ConsentRecord": {
+      "title": "ConsentRecord",
+      "description": "Explicit privacy and contact discovery consent audit record.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated UID of the consenting user."
+        },
+        "consentPurpose": {
+          "type": "string",
+          "description": "Purpose identifier for consent."
+        },
+        "policyVersion": {
+          "type": "string",
+          "description": "Semantic version of the privacy policy accepted."
+        },
+        "localContactsGranted": {
+          "type": "boolean",
+          "description": "Whether Android READ_CONTACTS permission and local reading consent are active."
+        },
+        "serverMatchingGranted": {
+          "type": "boolean",
+          "description": "Whether separate opt-in consent for server-side matching is active."
+        },
+        "grantedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when consent was granted."
+        },
+        "revokedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Optional server timestamp when consent was revoked."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the latest consent update."
+        }
+      },
+      "required": [
+        "userId",
+        "consentPurpose",
+        "policyVersion",
+        "localContactsGranted",
+        "serverMatchingGranted",
+        "grantedAt",
+        "updatedAt"
+      ]
+    },
+    "DiscoveryBatch": {
+      "title": "DiscoveryBatch",
+      "description": "User-isolated metadata record of privacy-preserving HMAC token batches submitted for contact matching.",
+      "type": "object",
+      "properties": {
+        "batchId": {
+          "type": "string",
+          "description": "Unique batch ID."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner UID."
+        },
+        "tokenCount": {
+          "type": "integer",
+          "description": "Number of normalized E.164 tokens in the batch (bounded)."
+        },
+        "tokenDigests": {
+          "type": "array",
+          "description": "Bounded list of client-blinded token digests (max 50 per batch)."
+        },
+        "policyVersion": {
+          "type": "string",
+          "description": "Policy version under which batch was submitted."
+        },
+        "expiresAt": {
+          "type": "integer",
+          "description": "Retention limit expiration epoch millis."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of submission."
+        }
+      },
+      "required": [
+        "batchId",
+        "userId",
+        "tokenCount",
+        "tokenDigests",
+        "policyVersion",
+        "expiresAt",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and privacy settings document."
+    },
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/Room" },
+      "description": "Real-time multiplayer rooms."
+    },
+    "/games/{gameId}": {
+      "schema": { "$ref": "#/entities/GameRecord" },
+      "description": "Synced game history records."
+    },
+    "/consents/{uid}": {
+      "schema": { "$ref": "#/entities/ConsentRecord" },
+      "description": "Explicit user consent records for contact discovery."
+    },
+    "/users/{uid}/discoveryBatches/{batchId}": {
+      "schema": { "$ref": "#/entities/DiscoveryBatch" },
+      "description": "User-owned contact discovery token batches subject to retention and deletion."
+    }
+  }
+}

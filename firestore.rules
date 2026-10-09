@@ -1,0 +1,431 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Default-Deny Safety Net (Pillar 1)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ---------------------------------------------------------
+    // 1. UserProfile Validation & Rules (/users/{uid})
+    // ---------------------------------------------------------
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+               'userId',
+               'displayName',
+               'contactDiscoveryEnabled',
+               'serverMatchingConsent',
+               'createdAt',
+               'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId',
+               'displayName',
+               'verifiedPhoneNumber',
+               'contactDiscoveryEnabled',
+               'serverMatchingConsent',
+               'createdAt',
+               'updatedAt'
+             ]) &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+             (!('verifiedPhoneNumber' in data) || data.verifiedPhoneNumber == null || (data.verifiedPhoneNumber is string && data.verifiedPhoneNumber.size() <= 20)) &&
+             data.contactDiscoveryEnabled is bool &&
+             data.serverMatchingConsent is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /users/{uid} {
+      // PII Isolation: Strictly owner-only read
+      allow get: if isOwner(uid) && isValidId(uid);
+      allow list: if isOwner(uid);
+
+      allow create: if isOwner(uid) &&
+                       isValidId(uid) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == request.auth.uid;
+
+      allow update: if isOwner(uid) &&
+                       isValidId(uid) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName',
+                         'verifiedPhoneNumber',
+                         'contactDiscoveryEnabled',
+                         'serverMatchingConsent',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(uid) && isValidId(uid);
+
+      // ---------------------------------------------------------
+      // Subcollection: User Discovery Batches (/users/{uid}/discoveryBatches/{batchId})
+      // ---------------------------------------------------------
+      function isValidDiscoveryBatch(data) {
+        return data.keys().hasAll([
+                 'batchId',
+                 'userId',
+                 'tokenCount',
+                 'tokenDigests',
+                 'policyVersion',
+                 'expiresAt',
+                 'createdAt'
+               ]) &&
+               data.keys().hasOnly([
+                 'batchId',
+                 'userId',
+                 'tokenCount',
+                 'tokenDigests',
+                 'policyVersion',
+                 'expiresAt',
+                 'createdAt'
+               ]) &&
+               data.batchId is string && data.batchId.size() >= 1 && data.batchId.size() <= 128 &&
+               data.userId is string && data.userId == request.auth.uid &&
+               data.tokenCount is int && data.tokenCount >= 0 && data.tokenCount <= 50 &&
+               data.tokenDigests is list && data.tokenDigests.size() <= 50 &&
+               (data.tokenDigests.size() == 0 || (data.tokenDigests[0] is string && data.tokenDigests[0].size() <= 128)) &&
+               data.policyVersion is string && data.policyVersion.size() >= 1 && data.policyVersion.size() <= 32 &&
+               data.expiresAt is int && data.expiresAt > 0 &&
+               data.createdAt is timestamp && data.createdAt <= request.time;
+      }
+
+      match /discoveryBatches/{batchId} {
+        allow get: if isOwner(uid) && isValidId(uid) && isValidId(batchId);
+        allow list: if isOwner(uid) && existing().userId == request.auth.uid;
+
+        allow create: if isOwner(uid) &&
+                         isValidId(uid) &&
+                         isValidId(batchId) &&
+                         isValidDiscoveryBatch(incoming()) &&
+                         incoming().batchId == batchId &&
+                         incoming().userId == uid;
+
+        // Batches are immutable once submitted; user can delete them to withdraw data
+        allow update: if false;
+        allow delete: if isOwner(uid) && isValidId(uid) && isValidId(batchId);
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 2. Online Multiplayer Rooms (/rooms/{roomId})
+    // ---------------------------------------------------------
+    function isValidRoom(data) {
+      return data.keys().hasAll([
+               'roomId',
+               'hostUid',
+               'hostName',
+               'guestUid',
+               'guestName',
+               'board',
+               'currentTurn',
+               'status',
+               'winner',
+               'winningCells',
+               'hostScore',
+               'guestScore',
+               'draws',
+               'roundNumber',
+               'hostConnected',
+               'guestConnected',
+               'expiresAt',
+               'createdAt',
+               'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'roomId',
+               'hostUid',
+               'hostName',
+               'guestUid',
+               'guestName',
+               'board',
+               'currentTurn',
+               'status',
+               'winner',
+               'winningCells',
+               'hostScore',
+               'guestScore',
+               'draws',
+               'roundNumber',
+               'hostConnected',
+               'guestConnected',
+               'expiresAt',
+               'createdAt',
+               'updatedAt'
+             ]) &&
+             data.roomId is string && data.roomId.size() >= 4 && data.roomId.size() <= 32 &&
+             data.hostUid is string && data.hostUid.size() >= 1 && data.hostUid.size() <= 128 &&
+             data.hostName is string && data.hostName.size() >= 1 && data.hostName.size() <= 50 &&
+             data.guestUid is string && data.guestUid.size() <= 128 &&
+             data.guestName is string && data.guestName.size() <= 50 &&
+             data.board is list && data.board.size() == 9 &&
+             data.board[0] is string && data.board[0].size() <= 1 &&
+             data.currentTurn in ['X', 'O'] &&
+             data.status in ['waiting', 'playing', 'finished', 'abandoned'] &&
+             data.winner in ['', 'X', 'O', 'DRAW'] &&
+             data.winningCells is list && data.winningCells.size() <= 3 &&
+             (data.winningCells.size() == 0 || data.winningCells[0] is int) &&
+             data.hostScore is int && data.hostScore >= 0 &&
+             data.guestScore is int && data.guestScore >= 0 &&
+             data.draws is int && data.draws >= 0 &&
+             data.roundNumber is int && data.roundNumber >= 1 &&
+             data.hostConnected is bool &&
+             data.guestConnected is bool &&
+             data.expiresAt is int && data.expiresAt > 0 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /rooms/{roomId} {
+      // Authenticated players can fetch a specific room by its room code to join/observe
+      allow get: if isSignedIn() && isValidId(roomId);
+      // List queries must filter by hostUid or guestUid matching the caller
+      allow list: if isSignedIn() &&
+                     (existing().hostUid == request.auth.uid || existing().guestUid == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       isValidRoom(incoming()) &&
+                       incoming().roomId == roomId &&
+                       incoming().hostUid == request.auth.uid &&
+                       incoming().guestUid == '' &&
+                       incoming().status == 'waiting' &&
+                       incoming().currentTurn == 'X' &&
+                       incoming().winner == '';
+
+      // Action-Based Update Pattern (Pillar 4 & Pillar 9)
+      allow update: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       isValidRoom(incoming()) &&
+                       incoming().roomId == existing().roomId &&
+                       incoming().hostUid == existing().hostUid &&
+                       incoming().createdAt == existing().createdAt && (
+                         // Action 1: Guest joins a waiting room
+                         (existing().status == 'waiting' &&
+                          existing().guestUid == '' &&
+                          request.auth.uid != existing().hostUid &&
+                          incoming().guestUid == request.auth.uid &&
+                          incoming().status == 'playing' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'guestUid',
+                            'guestName',
+                            'guestConnected',
+                            'status',
+                            'updatedAt'
+                          ])) ||
+                         // Action 2: Active participant makes a move or completes round
+                         (existing().status == 'playing' &&
+                          (request.auth.uid == existing().hostUid || request.auth.uid == existing().guestUid) &&
+                          incoming().guestUid == existing().guestUid &&
+                          ((existing().currentTurn == 'X' && request.auth.uid == existing().hostUid) ||
+                           (existing().currentTurn == 'O' && request.auth.uid == existing().guestUid)) &&
+                          incoming().status in ['playing', 'finished'] &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'board',
+                            'currentTurn',
+                            'status',
+                            'winner',
+                            'winningCells',
+                            'hostScore',
+                            'guestScore',
+                            'draws',
+                            'updatedAt'
+                          ])) ||
+                         // Action 3: Rematch / New Round requested by participant after round finished
+                         (existing().status == 'finished' &&
+                          (request.auth.uid == existing().hostUid || request.auth.uid == existing().guestUid) &&
+                          incoming().guestUid == existing().guestUid &&
+                          incoming().status == 'playing' &&
+                          incoming().winner == '' &&
+                          incoming().roundNumber == existing().roundNumber + 1 &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'board',
+                            'currentTurn',
+                            'status',
+                            'winner',
+                            'winningCells',
+                            'roundNumber',
+                            'updatedAt'
+                          ])) ||
+                         // Action 4: Connection presence or leaving/abandoning room
+                         ((request.auth.uid == existing().hostUid || request.auth.uid == existing().guestUid) &&
+                          incoming().guestUid == existing().guestUid &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'hostConnected',
+                            'guestConnected',
+                            'status',
+                            'updatedAt'
+                          ]))
+                       );
+
+      allow delete: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       existing().hostUid == request.auth.uid;
+    }
+
+    // ---------------------------------------------------------
+    // 3. Synced Game Records (/games/{gameId})
+    // ---------------------------------------------------------
+    function isValidGameRecord(data) {
+      return data.keys().hasAll([
+               'gameId',
+               'userId',
+               'playerUids',
+               'board',
+               'currentTurn',
+               'status',
+               'result',
+               'mode',
+               'createdAt',
+               'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'gameId',
+               'userId',
+               'playerUids',
+               'board',
+               'currentTurn',
+               'status',
+               'result',
+               'mode',
+               'createdAt',
+               'updatedAt'
+             ]) &&
+             data.gameId is string && data.gameId.size() >= 1 && data.gameId.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.playerUids is list && data.playerUids.size() >= 1 && data.playerUids.size() <= 2 &&
+             data.playerUids[0] is string && data.playerUids[0].size() <= 128 &&
+             data.board is list && data.board.size() == 9 &&
+             data.board[0] is string && data.board[0].size() <= 1 &&
+             data.currentTurn in ['X', 'O'] &&
+             data.status in ['playing', 'finished'] &&
+             data.result in ['X_WON', 'O_WON', 'DRAW', 'IN_PROGRESS'] &&
+             data.mode in ['LOCAL', 'ROBOT_EASY', 'ROBOT_MEDIUM', 'ROBOT_HARD', 'ONLINE'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /games/{gameId} {
+      allow get: if isSignedIn() && isValidId(gameId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       isValidId(gameId) &&
+                       isValidGameRecord(incoming()) &&
+                       incoming().gameId == gameId &&
+                       incoming().userId == request.auth.uid;
+
+      // Terminal State Locking: cannot update once status == 'finished'
+      allow update: if isSignedIn() &&
+                       isValidId(gameId) &&
+                       isValidGameRecord(incoming()) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().gameId == existing().gameId &&
+                       incoming().createdAt == existing().createdAt &&
+                       existing().status != 'finished' &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'board',
+                         'currentTurn',
+                         'status',
+                         'result',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(gameId) && existing().userId == request.auth.uid;
+    }
+
+    // ---------------------------------------------------------
+    // 4. Consent Audit Records (/consents/{uid})
+    // ---------------------------------------------------------
+    function isValidConsentRecord(data) {
+      return data.keys().hasAll([
+               'userId',
+               'consentPurpose',
+               'policyVersion',
+               'localContactsGranted',
+               'serverMatchingGranted',
+               'grantedAt',
+               'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId',
+               'consentPurpose',
+               'policyVersion',
+               'localContactsGranted',
+               'serverMatchingGranted',
+               'grantedAt',
+               'revokedAt',
+               'updatedAt'
+             ]) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.consentPurpose is string && data.consentPurpose.size() >= 1 && data.consentPurpose.size() <= 200 &&
+             data.policyVersion is string && data.policyVersion.size() >= 1 && data.policyVersion.size() <= 32 &&
+             data.localContactsGranted is bool &&
+             data.serverMatchingGranted is bool &&
+             data.grantedAt is timestamp && data.grantedAt <= request.time &&
+             (!('revokedAt' in data) || data.revokedAt == null || (data.revokedAt is timestamp && data.revokedAt <= request.time)) &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /consents/{uid} {
+      allow get: if isOwner(uid) && isValidId(uid);
+      allow list: if isOwner(uid);
+
+      allow create: if isOwner(uid) &&
+                       isValidId(uid) &&
+                       isValidConsentRecord(incoming()) &&
+                       incoming().userId == uid;
+
+      allow update: if isOwner(uid) &&
+                       isValidId(uid) &&
+                       isValidConsentRecord(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'consentPurpose',
+                         'policyVersion',
+                         'localContactsGranted',
+                         'serverMatchingGranted',
+                         'grantedAt',
+                         'revokedAt',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(uid) && isValidId(uid);
+    }
+
+    // ---------------------------------------------------------
+    // 5. Server-Only Contact Discovery Index (/contactDiscovery/{recordId})
+    // ---------------------------------------------------------
+    match /contactDiscovery/{recordId} {
+      // Strictly forbidden to all client SDKs; accessed only by trusted Cloud Functions Admin SDK
+      allow read, write: if false;
+    }
+  }
+}

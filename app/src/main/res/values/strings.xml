@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">Tic-Tac-Toe Pro</string>
+    <string name="splash_tagline">Cyber-Grid Arena &amp; Privacy-First Contact Discovery</string>
+    <string name="nav_home">Arena</string>
+    <string name="nav_online">Online</string>
+    <string name="nav_scoreboard">Scores</string>
+    <string name="nav_contacts">Discovery</string>
+    <string name="nav_settings">Settings</string>
+    <string name="mode_local_title">Local Pass &amp; Play</string>
+    <string name="mode_local_subtitle">2 Players on one device • Offline ready</string>
+    <string name="mode_robot_title">Play vs. Robot AI</string>
+    <string name="mode_robot_subtitle">Easy, Medium &amp; Unbeatable Minimax Hard</string>
+    <string name="mode_online_title">Online Multiplayer</string>
+    <string name="mode_online_subtitle">Real-time Firebase rooms &amp; live sync</string>
+    <string name="difficulty_easy">Easy • Casual Random</string>
+    <string name="difficulty_medium">Medium • Tactical Blocker</string>
+    <string name="difficulty_hard">Hard • Unbeatable Minimax</string>
+    <string name="btn_new_round">New Round</string>
+    <string name="btn_restart_match">Reset Scores</string>
+    <string name="btn_rematch">Request Rematch</string>
+    <string name="btn_create_room">Create Room</string>
+    <string name="btn_join_room">Join Room</string>
+    <string name="btn_sign_in_google">Sign in with Google</string>
+    <string name="btn_sign_out">Sign Out</string>
+    <string name="contact_permission_title">Optional Contact Discovery</string>
+    <string name="privacy_policy_title">Privacy Policy &amp; Data Deletion</string>
+</resources>

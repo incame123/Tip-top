@@ -1,0 +1,6 @@
+{
+  "name": "Tic-Tac-Toe Pro",
+  "description": "Complete Tic-Tac-Toe game with local multiplayer, 3 AI difficulty levels, real-time Firebase online multiplayer, and privacy-preserving contact discovery foundation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
